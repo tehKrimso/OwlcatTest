@@ -17,8 +17,8 @@ namespace TestTask
 
 			File* file;
 
-			file = GetOpenedFile(name);
-
+			//check if file is already opened
+			file = openedFiles[name];
 			if (file != nullptr) {
 				if (file->isWriteOnly) {
 					fileLock.unlock();
@@ -29,16 +29,15 @@ namespace TestTask
 				return file;
 			}
 
-			file = GetFile(name);
-
+			//check if file exists
+			file = virtualFiles[name];
 			if (file == nullptr) {
 				fileLock.unlock();
 				return nullptr;
 			}
 
-
+			//if file exists, open root filestream in read mode
 			file->root->fileStream.open(file->root->name, std::ios::in);
-
 			if (file->root->fileStream.is_open()) {
 
 				file->isReadOnly = true;
@@ -71,7 +70,7 @@ namespace TestTask
 
 			if (firstSlash == std::string::npos) {
 
-				//то путь пустой и запрашиваемый файл это рут
+				//file is root
 				fileName = name;
 				rootName = name;
 			}
@@ -82,35 +81,31 @@ namespace TestTask
 			size_t lastSlah = fullPath.find_last_of("/");
 
 			if (lastSlah == firstSlash) {
-				//если файл сразу под рутом
+				//virtual file direct child of root
 				fileName = fullPath.substr(lastSlah + 1, fullPath.length());
 			}
 			else {
-				//если файл находится дальше внутри директорий
+				//virtual file inside a directory
 				path = fullPath.substr(firstSlash+1, lastSlah - firstSlash - 1);
 				fileName = fullPath.substr(lastSlah + 1, fullPath.length());
 			}
 
 
 
-			//проверка не открыт ли уже запрашиваемый рут
+			//check if root opened
 			root = openedFiles[rootName.c_str()];
 			if (root == nullptr) {
-				//проверка существует ли запрашиваемый рут
+				//check if root exists
 				root = rootFiles[rootName.c_str()];
 				if (root == nullptr) {
-					//создание нового рута, если его не было
-					//const char* newRootName = new char[rootName.length()];
-
+					//if there is no root, create one
 					void* newRootName = malloc(sizeof(rootName));
 					strcpy_s((char*)newRootName, sizeof(rootName), rootName.c_str());
-					//std::copy(rootName.begin(), rootName.end(), newRootName);
-					//strcpy_s(newRootName, sizeof(rootName), rootName.c_str());
 
 					root = CreateRoot((char*)newRootName);
 				}
 				else {
-					//если рут уже есть, открываем его в режиме WriteOnly
+					//if root exists, open in write mode
 					root->fileStream.open(root->name, std::ios::app);
 					if (root->fileStream.is_open()) {
 						root->isWriteOnly = true;
@@ -119,24 +114,21 @@ namespace TestTask
 				}
 			}
 
-			//fileLock.unlock();
-			//return root;
-
-			//проверка, не является ли запрашиваемый файл рутом
+			//if file we are looking for is root
 			if (rootName == fileName) {
 				if (root->isReadOnly) {
-					//если рут уже открыт в режиме ReadOnly, отдаем nullptr
+					//if root already opened in ReadOnlyMode, return nullptr
 					fileLock.unlock();
 					return nullptr;
 				}
-				//иначе просто отдаем рут
+				
 				fileLock.unlock();
 				return root;
 			}
 
-			//если запрашиваемый файл не рут, проверяем есть ли на пути директории
+			//check for directories
 			if (!path.empty()) {
-				//проверяем наличие директорий и создаем, если нужно
+				//create directories if needed
 				std::string currentPath = path;
 				size_t slashPos = currentPath.find_first_of("/");
 				while (slashPos != std::string::npos) {
@@ -152,7 +144,7 @@ namespace TestTask
 						const char newDirName{ *directoryName.c_str() };
 						const char newDirPath{ *currentPath.c_str() };
 
-						dir = new File{&newDirName,&newDirPath,root,false,true,false,false,0,0,0};
+						dir = new File{&newDirName,root,false,true,false,false,0,0,0};
 						directories[dir->name] = dir;		
 					}
 					else {
@@ -160,35 +152,34 @@ namespace TestTask
 					}
 				}
 
-				//когда остается последний кусочек пути, проверяем еще раз
+				//check last directory
 				File* dir = directories[currentPath.c_str()];
 
 				if (dir == nullptr) {
 					const char newDirPath{ *currentPath.c_str() };
 
-					dir = new File{ &newDirPath,&newDirPath,root,false,true,false,false,0,0,0 };
+					dir = new File{ &newDirPath,root,false,true,false,false,0,0,0 };
 					directories[dir->name] = dir;
 				}
 			}
 
 
-			//в конце проверяем, существует ли нужный файл, создаем, если требуется
-			file = allFiles[name];
+			//check if file exists
+			file = virtualFiles[name];
 			if (file == nullptr) {
-				//если файла нет, создаем новый файл под рутом и отдаем указатель на него
-				file = new File{ name,path.c_str(),rootFiles[root->name],false,false,false,false,0,0,0};
-				allFiles[file->name] = file;
+				//create new file if we dont have one
+				file = new File{ name,rootFiles[root->name],false,false,false,false,0,0,0};
+				virtualFiles[file->name] = file;
 				fileLock.unlock();
 				return file;
 			}
 			else{
-				//если файл уже есть, проверяем, не открыт ли он в рпежиме ReadOnly
+				//check if file opened in ReadOnly mode
 				if (file->isReadOnly) {
-					//если рут уже открыт в режиме ReadOnly, отдаем nullptr
 					fileLock.unlock();
 					return nullptr;
 				}
-				//иначе открываем поток рута в режиме WriteOnly и отдаем файл
+				//open root in write mode and return file;
 				file->root->fileStream.open(file->root->name, std::ios::app);
 				if (file->root->fileStream.is_open()) {
 					file->isWriteOnly = true;
@@ -197,7 +188,6 @@ namespace TestTask
 					return file;
 				}
 
-				//если поток не открылся возвращаем nullptr
 				fileLock.unlock();
 				return nullptr;
 			}
@@ -208,11 +198,13 @@ namespace TestTask
 		{
 			fileLock.lock();
 
+			//check if file stream opened
 			if (!f->root->fileStream.is_open()) {
 				fileLock.unlock();
 				return 0;
 			}
 
+			//check if file opened in ReadOnlyMode
 			if (!f->isReadOnly) {
 				fileLock.unlock();
 				return 0;
@@ -222,23 +214,20 @@ namespace TestTask
 
 			if (f->root->fileStream.is_open()) {
 
+				//set pointer to virtual file start
 				f->root->fileStream.seekg(f->start, std::ios::beg);
 
 				if (f->size < len) {
+					//read full file if buffer larger than file size
 					if (f->root->fileStream.read(buff, f->size)) {
 						bytesRead = f->root->fileStream.gcount();
 					}
-					
-					
-
-					//bytesRead = f->root->fileStream.readsome(buff, f->size);
 				}
 				else {
+					//read part of the file
 					if (f->root->fileStream.read(buff, len)) {
 						bytesRead = f->root->fileStream.gcount();
 					}
-
-					//bytesRead = f->root->fileStream.readsome(buff, len);
 				}
 			}
 
@@ -253,23 +242,24 @@ namespace TestTask
 		{
 			fileLock.lock();
 
+			//check if file stream opened
 			if (!f->root->fileStream.is_open()) {
 				fileLock.unlock();
 				return 0;
 			}
 
+			//check if file opened in WriteOnly mode
 			if (!f->isWriteOnly) {
 				fileLock.unlock();
 				return 0;
 			}
-
-			
 
 			size_t bytesWrite{};
 
 			if (f->root->fileStream.is_open()) {
 
 				if (f->size == 0) {
+					//if virtual file is empty, write to the end of root file
 					f->root->fileStream.seekp(0, std::ios::end);
 					f->start = f->root->fileStream.tellp();
 					if (f->root->fileStream.write(buff, len)) {
@@ -279,6 +269,7 @@ namespace TestTask
 					}
 				}
 				else {
+					//if file is not empty, set pointer to the end of virtual file
 					f->root->fileStream.seekp(f->end, std::ios::beg);
 					size_t start = f->root->fileStream.tellp();
 
@@ -303,7 +294,7 @@ namespace TestTask
 
 			File* file;
 
-			file = GetOpenedFile(f->name);
+			file = openedFiles[f->name];
 
 			if (file == nullptr) {
 				fileLock.unlock();
@@ -324,59 +315,15 @@ namespace TestTask
 			}
 		};
 
-
 	private:
 		std::unordered_map<const char*, File*> rootFiles;
 		std::unordered_map<const char*, File*> directories;
-		std::unordered_map <const char*, File*> allFiles;
+		std::unordered_map <const char*, File*> virtualFiles;
 		std::unordered_map <const char*, File*> openedFiles;
 		std::mutex fileLock;
 
-		File* GetFile(const char* name) 
-		{
-			auto iterator = allFiles.find(name);
-			if (iterator == allFiles.end()) {
-				return nullptr;
-			}
-			else {
-				return iterator->second;
-			}
-		};
-
-		File* GetOpenedFile(const char* name) 
-		{
-			auto iterator = openedFiles.find(name);
-			if (iterator == openedFiles.end()) {
-				return nullptr;
-			}
-			else {
-				return iterator->second;
-			}
-		}
-
-		File* GetDirectory(const char* name)
-		{
-			auto iterator = directories.find(name);
-			if (iterator == directories.end()) {
-				return nullptr;
-			}
-			else {
-				return iterator->second;
-			}
-		}
-
-		File* GetRootFile(const char* name) {
-			auto iterator = rootFiles.find(name);
-			if (iterator == rootFiles.end()) {
-				return nullptr;
-			}
-			else {
-				return iterator->second;
-			}
-		}
-
 		File* CreateRoot(const char* name) {
-			File* file = new File{ name,name,nullptr,true,false,false,false,0,0,0 };
+			File* file = new File{ name,nullptr,true,false,false,false,0,0,0 };
 			file->root = file;
 			rootFiles[name] = file;
 
