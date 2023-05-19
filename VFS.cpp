@@ -106,7 +106,7 @@ namespace TestTask
 				}
 				else {
 					//if root exists, open in write mode
-					root->fileStream.open(root->name, std::ios::app);
+					root->fileStream.open(root->name, std::ios::binary | std::ios::app);
 					if (root->fileStream.is_open()) {
 						root->isWriteOnly = true;
 						openedFiles[root->name] = root;
@@ -327,8 +327,11 @@ namespace TestTask
 			file->root = file;
 			rootFiles[name] = file;
 
-			file->fileStream.open(name, std::ios::app);
-			file->fileStream.close();
+			file->fileStream.open(name, std::ios::binary | std::ios::app);
+			if (file->fileStream.is_open()) {
+				file->isWriteOnly = true;
+			}
+			//file->fileStream.close();
 
 			return file;
 		}
