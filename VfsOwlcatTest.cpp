@@ -10,16 +10,34 @@ TestTask::VFS* vfs = new TestTask::VFS;
 
 void Test();
 void TestVirtualFile();
+void TestDifferentModes();
 
 int main()
 {
     Test();
     TestVirtualFile();
+    TestDifferentModes();
 
     return 0;
 }
 
+/*
+Педложенный для исправлений тестовый метод изначально имел следующий вид:
+void Test()
+{
+   FILE* fA = vfs->Create("a.bin");
+   FILE* fB = vfs->Create("b.bin");
+   vfs->Write( fA, "abc", 3);
+   vfs->Write( fB, "123", 3);
+   vfs->Write(fA, "cde", 3);
+   vfs->Write(fB, "345", 3);
+   vfs->Close(fA);
+   vfs->Close(fB);
+}
 
+Я изменил тип данных с указателя на поток FILE* на указатель на структуру File*, которую нужно было использовать в первоначальном задании,
+так же расширил для проверки чтения из созданых файлов
+*/
 void Test()
 {
     char firstLine[] = "abc";
@@ -54,6 +72,9 @@ void Test()
     std::cout << readBufferBig << std::endl;
 }
 
+/*
+Метод для проверки работы вложенных файлов, возможности дозаписи в файл и дальнейшего чтения вложеных файлов и первоначальных
+*/
 void TestVirtualFile() {
     char firstLine[] = "zxc";
     char secondLine[] = "098";
@@ -78,4 +99,19 @@ void TestVirtualFile() {
 
     std::cout << readBufferPart << std::endl;
     std::cout << readBufferFull << std::endl;
+}
+/*
+Метод для проверки возможности иметь разные файлы открытыми для чтения и для записи
+*/
+void TestDifferentModes() {
+    char firstLine[] = "zxc";
+    TestTask::File* fA = vfs->Create("a.bin");
+    TestTask::File* fB = vfs->Open("b.bin");
+    vfs->Write(fA, firstLine, 3);
+    char* readBufferEqual = new char[6];
+    vfs->Read(fB, readBufferEqual, 6);
+    vfs->Close(fA);
+    vfs->Close(fB);
+
+    std::cout << readBufferEqual << std::endl;
 }

@@ -131,17 +131,6 @@ namespace TestTask
 
 					root = CreateRoot((char*)newRootName);
 				}
-				/*else {
-					//if root exists, open in write mode
-					root->fileStream.open(root->name, std::ios::binary | std::ios::app);
-					if (root->fileStream.is_open()) {
-						root->isWriteOnly = true;
-						openedFiles[root->name] = root;
-
-						std::cout << "File opened in WriteOnly mode " << root->name << std::endl;
-					}
-				}*/
-
 			}
 
 			//if file we are looking for is root
@@ -193,9 +182,6 @@ namespace TestTask
 						strcpy_s((char*)newDirName, sizeof(directoryName), directoryName.c_str());
 						strcpy_s((char*)newDirPath, sizeof(currentPath), currentPath.c_str());
 
-						//const char newDirName{ *directoryName.c_str() };
-						//const char newDirPath{ *currentPath.c_str() };
-
 						dir = new File{(char*)newDirName,root,false,true,false,false,0,0,0};
 						directories[dir->name] = dir;		
 					}
@@ -208,7 +194,6 @@ namespace TestTask
 				File* dir = FindFileInCollection(directories, currentPath.c_str());
 
 				if (dir == nullptr) {
-					//const char newDirPath{ *currentPath.c_str() };
 
 					void* newDirPath = malloc(sizeof(currentPath));
 					strcpy_s((char*)newDirPath, sizeof(currentPath), currentPath.c_str());
@@ -225,8 +210,6 @@ namespace TestTask
 				//create new file if we dont have one
 				file = new File{ name,rootFiles[root->name],false,false,false,false,0,0,0};
 				virtualFiles[file->name] = file;
-				//fileLock.unlock();
-				//return file;
 			}
 			else{
 				//check if file opened in ReadOnly mode
@@ -234,14 +217,6 @@ namespace TestTask
 					fileLock.unlock();
 					return nullptr;
 				}
-				//open root in write mode and return file;
-				/*file->root->fileStream.open(file->root->name, std::ios::binary | std::ios::app);
-				if (file->root->fileStream.is_open()) {
-					file->isWriteOnly = true;
-					openedFiles[file->name] = file;
-					fileLock.unlock();
-					return file;
-				}*/
 			}
 
 			//check if root already opened on WriteOnly mode
@@ -371,7 +346,7 @@ namespace TestTask
 				}
 			}
 
-			std::cout << "Bytes written" << bytesWrite << std::endl;
+			std::cout << "Bytes written: " << bytesWrite << std::endl;
 
 			fileLock.unlock();
 
