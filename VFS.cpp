@@ -18,7 +18,6 @@ namespace TestTask
 			File* file;
 
 			//check if file is already opened
-			//file = openedFiles[name];
 			file = FindFileInCollection(openedFiles, name);
 			if (file != nullptr) {
 				if (file->isWriteOnly) {
@@ -42,9 +41,31 @@ namespace TestTask
 				
 			}
 
+			//check if root already opened
+			if (file->root->fileStream.is_open()) {
+				if (file->root->isReadOnly) {
+					file->root->refCount++;
+					file->isReadOnly = true;
+
+					std::cout << "File opened in ReadOnly mode " << file->name << std::endl;
+
+					openedFiles[file->name] = file;
+
+					fileLock.unlock();
+					return file;
+				}
+				else {
+					//attempt to open root in readonly mode while root already opened in writeonly mode
+					fileLock.unlock();
+					return nullptr;
+				}
+			}
+
 			//if file exists, open root filestream in read mode
 			file->root->fileStream.open(file->root->name, std::ios::in);
 			if (file->root->fileStream.is_open()) {
+				file->root->refCount++;
+				file->root->isReadOnly = true;
 
 				file->isReadOnly = true;
 
@@ -99,11 +120,9 @@ namespace TestTask
 
 
 			//check if root opened
-			//root = openedFiles[rootName.c_str()];
 			root = FindFileInCollection(openedFiles, rootName.c_str());
 			if (root == nullptr) {
 				//check if root exists
-				//root = rootFiles[rootName.c_str()];
 				root = FindFileInCollection(rootFiles, rootName.c_str());
 				if (root == nullptr) {
 					//if there is no root, create one
@@ -112,14 +131,17 @@ namespace TestTask
 
 					root = CreateRoot((char*)newRootName);
 				}
-				else {
+				/*else {
 					//if root exists, open in write mode
 					root->fileStream.open(root->name, std::ios::binary | std::ios::app);
 					if (root->fileStream.is_open()) {
 						root->isWriteOnly = true;
 						openedFiles[root->name] = root;
+
+						std::cout << "File opened in WriteOnly mode " << root->name << std::endl;
 					}
-				}
+				}*/
+
 			}
 
 			//if file we are looking for is root
@@ -128,6 +150,22 @@ namespace TestTask
 					//if root already opened in ReadOnlyMode, return nullptr
 					fileLock.unlock();
 					return nullptr;
+				}
+
+				if (root->isWriteOnly) {
+					//if root already opened in WriteOnlyMode, return root pointer
+					fileLock.unlock();
+					return root;
+				}
+
+				//if root exists and we are looking for root, and root closed, open root in write mode
+				root->fileStream.open(root->name, std::ios::binary | std::ios::app);
+				if (root->fileStream.is_open()) {
+					root->refCount++;
+					root->isWriteOnly = true;
+					openedFiles[root->name] = root;
+
+					std::cout << "File opened in WriteOnly mode " << root->name << std::endl;
 				}
 				
 				fileLock.unlock();
@@ -149,10 +187,16 @@ namespace TestTask
 
 					if (dir == nullptr) {
 
-						const char newDirName{ *directoryName.c_str() };
-						const char newDirPath{ *currentPath.c_str() };
+						void* newDirName = malloc(sizeof(directoryName));
+						void* newDirPath = malloc(sizeof(currentPath));
 
-						dir = new File{&newDirName,root,false,true,false,false,0,0,0};
+						strcpy_s((char*)newDirName, sizeof(directoryName), directoryName.c_str());
+						strcpy_s((char*)newDirPath, sizeof(currentPath), currentPath.c_str());
+
+						//const char newDirName{ *directoryName.c_str() };
+						//const char newDirPath{ *currentPath.c_str() };
+
+						dir = new File{(char*)newDirName,root,false,true,false,false,0,0,0};
 						directories[dir->name] = dir;		
 					}
 					else {
@@ -161,27 +205,28 @@ namespace TestTask
 				}
 
 				//check last directory
-				//File* dir = directories[currentPath.c_str()];
 				File* dir = FindFileInCollection(directories, currentPath.c_str());
 
 				if (dir == nullptr) {
-					const char newDirPath{ *currentPath.c_str() };
+					//const char newDirPath{ *currentPath.c_str() };
 
-					dir = new File{ &newDirPath,root,false,true,false,false,0,0,0 };
+					void* newDirPath = malloc(sizeof(currentPath));
+					strcpy_s((char*)newDirPath, sizeof(currentPath), currentPath.c_str());
+
+					dir = new File{ (char*)newDirPath,root,false,true,false,false,0,0,0 };
 					directories[dir->name] = dir;
 				}
 			}
 
 
 			//check if file exists
-			//file = virtualFiles[name];
 			file = FindFileInCollection(virtualFiles, name);
 			if (file == nullptr) {
 				//create new file if we dont have one
 				file = new File{ name,rootFiles[root->name],false,false,false,false,0,0,0};
 				virtualFiles[file->name] = file;
-				fileLock.unlock();
-				return file;
+				//fileLock.unlock();
+				//return file;
 			}
 			else{
 				//check if file opened in ReadOnly mode
@@ -190,17 +235,49 @@ namespace TestTask
 					return nullptr;
 				}
 				//open root in write mode and return file;
-				file->root->fileStream.open(file->root->name, std::ios::app);
+				/*file->root->fileStream.open(file->root->name, std::ios::binary | std::ios::app);
 				if (file->root->fileStream.is_open()) {
 					file->isWriteOnly = true;
 					openedFiles[file->name] = file;
 					fileLock.unlock();
 					return file;
+				}*/
+			}
+
+			//check if root already opened on WriteOnly mode
+			if (file->root->fileStream.is_open()) {
+				if (file->root->isWriteOnly) {
+					file->root->refCount++;
+					file->isWriteOnly = true;
+					openedFiles[file->name] = file;
+					fileLock.unlock();
+					return file;
 				}
+				else {
+					//attempt to open root in readonly mode while root is already opened in writeonly mode
+					fileLock.unlock();
+					return nullptr;
+				}
+				
+			}
+
+			//open root in write mode and return file;
+			file->root->fileStream.open(file->root->name, std::ios::binary | std::ios::app);
+			if (file->root->fileStream.is_open()) {
+				file->root->refCount++;
+				file->root->isWriteOnly = true;
+				file->isWriteOnly = true;
+				openedFiles[file->name] = file;
+
+				std::cout << "File opened in WriteOnly mode " << file->name << std::endl;
 
 				fileLock.unlock();
-				return nullptr;
+				return file;
 			}
+
+			//if filestream failed to open
+			fileLock.unlock();
+			return nullptr;
 
 		};
 
@@ -242,6 +319,9 @@ namespace TestTask
 			}
 
 			std::cout << "Bytes read: " << bytesRead << std::endl;
+
+			//end line null
+			buff[len] = '\0';
 
 			fileLock.unlock();
 
@@ -312,11 +392,17 @@ namespace TestTask
 			}
 			else {
 				if (file->root->fileStream.is_open()) {
-					file->root->fileStream.close();
+					file->root->refCount--;
 					file->isReadOnly = false;
 					file->isWriteOnly = false;
 
 					openedFiles.erase(f->name);
+
+					if (file->root->refCount <= 0) {
+						file->root->refCount = 0;
+						file->root->fileStream.close();
+					}
+
 					std::cout << "File closed " << file->name << std::endl;
 
 				}
@@ -326,28 +412,31 @@ namespace TestTask
 		};
 
 	private:
-		std::unordered_map<const char*, File*> rootFiles;
-		std::unordered_map<const char*, File*> directories;
-		std::unordered_map <const char*, File*> virtualFiles;
-		std::unordered_map <const char*, File*> openedFiles;
+		std::unordered_map<std::string, File*> rootFiles;
+		std::unordered_map<std::string, File*> directories;
+		std::unordered_map <std::string, File*> virtualFiles;
+		std::unordered_map <std::string, File*> openedFiles;
 		std::mutex fileLock;
 
 		File* CreateRoot(const char* name) {
 			File* file = new File{ name,nullptr,true,false,false,false,0,0,0 };
 			file->root = file;
-			rootFiles[name] = file;
+			rootFiles[file->name] = file;
 
 			file->fileStream.open(name, std::ios::binary | std::ios::app);
 			if (file->fileStream.is_open()) {
+				file->refCount++;
+
 				file->isWriteOnly = true;
 				openedFiles[file->name] = file;
+
+				std::cout << "File opened in WriteOnly mode " << file->name << std::endl;
 			}
-			//file->fileStream.close();
 
 			return file;
 		}
 
-		File* FindFileInCollection(std::unordered_map<const char*, File*> collection, const char* name) {
+		File* FindFileInCollection(std::unordered_map<std::string, File*> collection, std::string name) {
 			auto iterator = collection.find(name);
 			if (iterator == collection.end()) {
 				return nullptr;

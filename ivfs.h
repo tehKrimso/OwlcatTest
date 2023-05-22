@@ -16,6 +16,7 @@ namespace TestTask
             bool isDirectory;
             bool isWriteOnly;
             bool isReadOnly;
+            uint64_t refCount;
             uint64_t start;
             uint64_t end;
             uint64_t size;

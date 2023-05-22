@@ -9,47 +9,12 @@ TestTask::VFS* vfs = new TestTask::VFS;
 
 
 void Test();
+void TestVirtualFile();
 
 int main()
 {
-    //::VFS vfs;
-
     Test();
-    return 0;
-    //create file
-    TestTask::File* test = vfs->Create("testRoot/testDir/testDir2/testFile");
-
-    //open file in WriteOnly mode
-    TestTask::File* openedTestWrite = vfs->Create("testRoot/testDir/testDir2/testFile");
-
-    //create write buffer
-    std::vector<char> writeBuffer(8 * 1000 * 1000, 'a');
-    
-    //write to the file
-    vfs->Write(openedTestWrite, &writeBuffer[0], writeBuffer.size());
-    
-    //close file
-    vfs->Close(openedTestWrite);
-
-    TestTask::File* test2 = vfs->Create("testRoot/testDir/testDir2/testFile2");
-    TestTask::File* openedtest2 = vfs->Create("testRoot/testDir/testDir2/testFile2");
-
-    std::vector<char> writeBuffer2(4 * 1000 * 1000, 'a');
-
-    vfs->Write(openedtest2, &writeBuffer2[0], writeBuffer2.size());
-    vfs->Close(openedtest2);
-
-    //open file for ReadOnlyMode
-    TestTask::File* openedTestRead = vfs->Open("testRoot/testDir/testDir2/testFile");
-
-    //create read buffer
-    char* readBuff = new char[writeBuffer.size() / 2];
-
-    //read from file
-    vfs->Read(openedTestRead, &readBuff[0], writeBuffer.size()/2);
-
-    //close file
-    vfs->Close(openedTestRead);
+    TestVirtualFile();
 
     return 0;
 }
@@ -62,8 +27,10 @@ void Test()
     char thirdLine[] = "cde";
     char fourthLine[] = "345";
 
-    //FILE* fA = vfs->Create("a.bin");
-    //FILE* fB = vfs->Create("b.bin");
+    char* readBufferSmall = new char[3];
+    char* readBufferEqual = new char[6];
+    char* readBufferBig = new char[9];
+
     TestTask::File* fA = vfs->Create("a.bin");
     TestTask::File* fB = vfs->Create("b.bin");
     vfs->Write(fA, firstLine, 3);
@@ -72,4 +39,43 @@ void Test()
     vfs->Write(fB, fourthLine, 3);
     vfs->Close(fA);
     vfs->Close(fB);
+
+    fA = vfs->Open("a.bin");
+    fB = vfs->Open("b.bin");
+
+    vfs->Read(fA, readBufferSmall, 3);
+    vfs->Read(fA, readBufferEqual, 6);
+    vfs->Read(fB, readBufferBig, 9);
+    vfs->Close(fA);
+    vfs->Close(fB);
+
+    std::cout << readBufferSmall << std::endl;
+    std::cout << readBufferEqual << std::endl;
+    std::cout << readBufferBig << std::endl;
+}
+
+void TestVirtualFile() {
+    char firstLine[] = "zxc";
+    char secondLine[] = "098";
+    TestTask::File* fA = vfs->Create("a.bin/virtualA");
+    TestTask::File* fB = vfs->Create("b.bin/virtualB");
+    TestTask::File* fC = vfs->Create("a.bin/folder/virtualC");
+    vfs->Write(fA, firstLine, 3);
+    vfs->Write(fB, secondLine, 3);
+    vfs->Write(fC, secondLine, 3);
+    vfs->Close(fA);
+    vfs->Close(fB);
+    vfs->Close(fC);
+
+    char* readBufferPart = new char[3];
+    char* readBufferFull = new char[12];
+    fC = vfs->Open("a.bin/folder/virtualC");
+    fA = vfs->Open("a.bin");
+    vfs->Read(fC, readBufferPart, 3);
+    vfs->Read(fA, readBufferFull, 12);
+    vfs->Close(fC);
+    vfs->Close(fA);
+
+    std::cout << readBufferPart << std::endl;
+    std::cout << readBufferFull << std::endl;
 }
