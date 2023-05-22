@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include "VFS.cpp"
-#include <vector>
 
 TestTask::VFS* vfs = new TestTask::VFS;
 
