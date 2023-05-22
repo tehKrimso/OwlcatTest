@@ -18,7 +18,8 @@ namespace TestTask
 			File* file;
 
 			//check if file is already opened
-			file = openedFiles[name];
+			//file = openedFiles[name];
+			file = FindFileInCollection(openedFiles, name);
 			if (file != nullptr) {
 				if (file->isWriteOnly) {
 					fileLock.unlock();
@@ -29,11 +30,16 @@ namespace TestTask
 				return file;
 			}
 
-			//check if file exists
-			file = virtualFiles[name];
+			//check if file is root file
+			file = FindFileInCollection(rootFiles, name);
 			if (file == nullptr) {
-				fileLock.unlock();
-				return nullptr;
+				//check if file is virtual file
+				file = FindFileInCollection(virtualFiles, name);
+				if (file == nullptr) {
+					fileLock.unlock();
+					return nullptr;
+				}
+				
 			}
 
 			//if file exists, open root filestream in read mode
@@ -93,10 +99,12 @@ namespace TestTask
 
 
 			//check if root opened
-			root = openedFiles[rootName.c_str()];
+			//root = openedFiles[rootName.c_str()];
+			root = FindFileInCollection(openedFiles, rootName.c_str());
 			if (root == nullptr) {
 				//check if root exists
-				root = rootFiles[rootName.c_str()];
+				//root = rootFiles[rootName.c_str()];
+				root = FindFileInCollection(rootFiles, rootName.c_str());
 				if (root == nullptr) {
 					//if there is no root, create one
 					void* newRootName = malloc(sizeof(rootName));
@@ -153,7 +161,8 @@ namespace TestTask
 				}
 
 				//check last directory
-				File* dir = directories[currentPath.c_str()];
+				//File* dir = directories[currentPath.c_str()];
+				File* dir = FindFileInCollection(directories, currentPath.c_str());
 
 				if (dir == nullptr) {
 					const char newDirPath{ *currentPath.c_str() };
@@ -165,7 +174,8 @@ namespace TestTask
 
 
 			//check if file exists
-			file = virtualFiles[name];
+			//file = virtualFiles[name];
+			file = FindFileInCollection(virtualFiles, name);
 			if (file == nullptr) {
 				//create new file if we dont have one
 				file = new File{ name,rootFiles[root->name],false,false,false,false,0,0,0};
@@ -330,10 +340,21 @@ namespace TestTask
 			file->fileStream.open(name, std::ios::binary | std::ios::app);
 			if (file->fileStream.is_open()) {
 				file->isWriteOnly = true;
+				openedFiles[file->name] = file;
 			}
 			//file->fileStream.close();
 
 			return file;
+		}
+
+		File* FindFileInCollection(std::unordered_map<const char*, File*> collection, const char* name) {
+			auto iterator = collection.find(name);
+			if (iterator == collection.end()) {
+				return nullptr;
+			}
+			else {
+				return iterator->second;
+			}
 		}
 	};
 }
