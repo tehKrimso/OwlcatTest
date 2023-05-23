@@ -62,7 +62,7 @@ namespace TestTask
 			}
 
 			//if file exists, open root filestream in read mode
-			file->root->fileStream.open(file->root->name, std::ios::in);
+			file->root->fileStream.open(file->root->name, std::ios::binary | std::ios::in);
 			if (file->root->fileStream.is_open()) {
 				file->root->refCount++;
 				file->root->isReadOnly = true;
