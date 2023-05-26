@@ -32,6 +32,7 @@ namespace TestTask
         virtual size_t Read(File* f, char* buff, size_t len) = 0;
         virtual size_t Write(File* f, char* buff, size_t len) = 0;
         virtual void Close(File* f) = 0;
+        virtual ~IVFS () {};
     };
 }
 

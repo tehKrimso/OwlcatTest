@@ -420,5 +420,10 @@ namespace TestTask
 				return iterator->second;
 			}
 		}
+
+		~VFS()
+		{
+
+		};
 	};
 }
