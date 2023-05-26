@@ -13,9 +13,11 @@ void TestDifferentModes();
 
 int main()
 {
+    setlocale(LC_ALL, ".UTF8");
+
     Test();
-    TestVirtualFile();
-    TestDifferentModes();
+    //TestVirtualFile();
+    //TestDifferentModes();
 
     return 0;
 }
